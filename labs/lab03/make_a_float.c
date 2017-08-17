@@ -8,13 +8,18 @@
 #include <string.h>
 #include <inttypes.h>
 
+#define SIGN_BITS 1
+#define EXP_BITS 8
+#define FRAC_BITS 23
+#define MAX_BIT_SHIFT 31
+
 typedef uint32_t Word;
 
 struct _float {
    // define bit_fields for sign, exp and frac
    // obviously they need to be larger than 1-bit each
    // and may need to be defined in a different order
-   unsigned int sign:1, exp:1, frac:1;
+   unsigned int sign:SIGN_BITS, exp:EXP_BITS, frac:FRAC_BITS;
 };
 typedef struct _float Float32;
 
@@ -57,15 +62,30 @@ Union32 getBits(char *sign, char *exp, char *frac)
 {
    Union32 new;
 
-   // this line is just to keep gcc happy
-   // delete it when you have implemented the function
    new.bits.sign = new.bits.exp = new.bits.frac = 0;
 
    // convert char *sign into a single bit in new.bits
+   if (sign[0] == '1') {
+      new.bits.sign |= 1;
+   }
 
    // convert char *exp into an 8-bit value in new.bits
+   for (int i = 0; i < EXP_BITS; i++) {
+      if (exp[i] == '1') {
+         new.bits.exp |= (1u << i);
+      }
+   }
 
    // convert char *frac into a 23-bit value in new.bits
+   for (int i = 0; i < FRAC_BITS; i++) {
+      if (frac[i] == '1') {
+         new.bits.frac |= (1u << i);
+      }
+   }
+
+   //printf("final sign value: %d\n", new.bits.sign);
+   //printf("final exp value: %d\n", new.bits.exp);
+   //printf("final frac value: %d\n", new.bits.frac);
 
    return new;
 }
@@ -76,9 +96,16 @@ Union32 getBits(char *sign, char *exp, char *frac)
 // return a pointer to buf
 char *showBits(Word val, char *buf)
 {
-   // this line is just to keep gcc happy
-   // delete it when you have implemented the function
-   buf[0] = '\0';
+   int j = 0;
+   for (int i = 0; i <= MAX_BIT_SHIFT; i++) {
+      if (((val >> i) & 1) == 1) {
+         buf[j] = '1';
+      } else {
+         buf[j] = '0';
+      }
+      j++;
+   }
+
    return buf;
 }
 

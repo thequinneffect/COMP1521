@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define FORCE_CAST *(int*)&word
+
 struct _bit_fields {
    unsigned int a : 4,
                 b : 8,
@@ -13,9 +15,20 @@ struct _bit_fields {
 
 int main(void)
 {
-   struct _bit_fields x;
+	struct _bit_fields word;
 
-   printf("%ul\n",sizeof(x));
+	printf("The struct is %lu bytes long\n",sizeof(word));
 
-   return 0;
+	word.a = 1, word.b = 3, word.c = 7;
+
+	for (int i = 31; i >= 0; i--) {
+		if ((FORCE_CAST >> i) & 1) {
+			printf("1");
+		} else {
+			printf("0");
+		}
+	}
+	printf("\n");
+
+	return 0;
 }
