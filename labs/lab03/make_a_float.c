@@ -16,10 +16,7 @@
 typedef uint32_t Word;
 
 struct _float {
-   // define bit_fields for sign, exp and frac
-   // obviously they need to be larger than 1-bit each
-   // and may need to be defined in a different order
-   unsigned int sign:SIGN_BITS, exp:EXP_BITS, frac:FRAC_BITS;
+   unsigned int frac:FRAC_BITS, exp:EXP_BITS, sign:SIGN_BITS;
 };
 typedef struct _float Float32;
 
@@ -61,8 +58,8 @@ int main(int argc, char **argv)
 Union32 getBits(char *sign, char *exp, char *frac)
 {
    Union32 new;
-
    new.bits.sign = new.bits.exp = new.bits.frac = 0;
+   int shift = 0;
 
    // convert char *sign into a single bit in new.bits
    if (sign[0] == '1') {
@@ -70,22 +67,22 @@ Union32 getBits(char *sign, char *exp, char *frac)
    }
 
    // convert char *exp into an 8-bit value in new.bits
+   shift = EXP_BITS - 1;
    for (int i = 0; i < EXP_BITS; i++) {
       if (exp[i] == '1') {
-         new.bits.exp |= (1u << i);
+         new.bits.exp |= (1u << shift);
       }
+      shift--;
    }
 
    // convert char *frac into a 23-bit value in new.bits
+   shift = FRAC_BITS - 1;
    for (int i = 0; i < FRAC_BITS; i++) {
       if (frac[i] == '1') {
-         new.bits.frac |= (1u << i);
+         new.bits.frac |= (1u << shift);
       }
+      shift--;
    }
-
-   //printf("final sign value: %d\n", new.bits.sign);
-   //printf("final exp value: %d\n", new.bits.exp);
-   //printf("final frac value: %d\n", new.bits.frac);
 
    return new;
 }
@@ -97,12 +94,13 @@ Union32 getBits(char *sign, char *exp, char *frac)
 char *showBits(Word val, char *buf)
 {
    int j = 0;
-   for (int i = 0; i <= MAX_BIT_SHIFT; i++) {
+   for (int i = MAX_BIT_SHIFT; i >= 0; i--) {
       if (((val >> i) & 1) == 1) {
          buf[j] = '1';
       } else {
          buf[j] = '0';
       }
+      if (j == 0 || j == 9) { buf[j+1] = ' '; j++;}
       j++;
    }
 
