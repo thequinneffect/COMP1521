@@ -61,22 +61,19 @@ Union32 getBits(char *sign, char *exp, char *frac)
    new.bits.sign = new.bits.exp = new.bits.frac = 0;
 
    // convert char *sign into a single bit in new.bits
-   if (sign[0] == '1') {
+   if (sign[0] == '1')
       new.bits.sign |= 1;
-   }
 
    // convert char *exp into an 8-bit value in new.bits
    for (int i = 0; i < EXP_BITS; i++) {
-      if (exp[i] == '1') {
+      if (exp[i] == '1')
          new.bits.exp |= (1u << (EXP_BITS - i - 1));
-      }
    }
 
    // convert char *frac into a 23-bit value in new.bits
    for (int i = 0; i < FRAC_BITS; i++) {
-      if (frac[i] == '1') {
-         new.bits.frac |= (1u << FRAC_BITS - i - 1);
-      }
+      if (frac[i] == '1')
+         new.bits.frac |= (1u << (FRAC_BITS - i - 1));
    }
 
    return new;
