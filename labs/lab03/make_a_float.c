@@ -59,7 +59,6 @@ Union32 getBits(char *sign, char *exp, char *frac)
 {
    Union32 new;
    new.bits.sign = new.bits.exp = new.bits.frac = 0;
-   int shift = 0;
 
    // convert char *sign into a single bit in new.bits
    if (sign[0] == '1') {
@@ -67,21 +66,17 @@ Union32 getBits(char *sign, char *exp, char *frac)
    }
 
    // convert char *exp into an 8-bit value in new.bits
-   shift = EXP_BITS - 1;
    for (int i = 0; i < EXP_BITS; i++) {
       if (exp[i] == '1') {
-         new.bits.exp |= (1u << shift);
+         new.bits.exp |= (1u << (EXP_BITS - i - 1));
       }
-      shift--;
    }
 
    // convert char *frac into a 23-bit value in new.bits
-   shift = FRAC_BITS - 1;
    for (int i = 0; i < FRAC_BITS; i++) {
       if (frac[i] == '1') {
-         new.bits.frac |= (1u << shift);
+         new.bits.frac |= (1u << FRAC_BITS - i - 1);
       }
-      shift--;
    }
 
    return new;
@@ -103,6 +98,7 @@ char *showBits(Word val, char *buf)
       if (j == 0 || j == 9) { buf[j+1] = ' '; j++;}
       j++;
    }
+   buf[j] = '\0';
 
    return buf;
 }
