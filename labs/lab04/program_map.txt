@@ -1,0 +1,38 @@
+C Code
+{	 
+	int main(void)
+	{
+	   int n;
+	   printf("n: ");
+	   scanf("%d", &n);
+	   printf("n! = %d\n", fac(n));
+	   return 0;
+	}
+	 
+	int fac(int k)
+	{
+	   int i, f = 1;
+	   for (i = 1; i <= k; i++) f = f * i;
+	   return f;
+	}
+}
+
+Program Map
+{
+	.data
+		1. create an asciiz prompt "n: "
+		2. create an asciiz prompt "n! = "
+
+	main:
+		1. print out prompt "n: "
+		2. take input from user and store in $a0 (argument reg.)
+		3. jal to factorial function
+		4. print out prompt "n! = "
+		5. print out int stored in $v0 from function ret
+
+	fac:
+		1. initialise counter and sum registers
+		2. create for branch structure
+		3. put final result in $v0
+		4. jump ret
+}
