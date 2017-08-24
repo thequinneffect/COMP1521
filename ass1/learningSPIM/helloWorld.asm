@@ -10,3 +10,4 @@ main:
 		
 		li $v0 10 # load immediately, the exit program service value, into register value0
 		syscall
+		

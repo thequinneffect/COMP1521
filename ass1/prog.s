@@ -7,7 +7,7 @@
 # Written by Nicholas Quinn (z5117408), August 2017
 
 		.data
-main_ret_save: .space 4
+main_ret_save:	.space 4
 
 		.text
 		.globl main

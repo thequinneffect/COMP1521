@@ -1,0 +1,399 @@
+memory 
+{
+	load: bit pattern is copied from memory into register (load = mem -> reg)
+	store: bit pattern is copied from a register into memory (store = reg -> mem)
+
+	.word = 0xFFEEDDCC
+	big end: contains FF (1111 1111)
+	little end: contains CC (1100 1100)
+	big endian: memory address points to the FF byte
+	little endian: memory address points to the CC byte
+	note: within a byte, the 7th bit is always the highest order bit (regarless of system being big or little endian)
+
+	there is no 8 or 16 bit arithmetic, just 32 bit arithemetic. In assembly (mips),registers are just padded    (either sign or zero extended) and then the ALU performs 32 bit arithmetic on them. However, 32 bit arithmetic on extended 8 bit quantities is not the same as true 8 bit arithmetic because carried out bits remain in the first bit of the second byte (further instructions are needed to deal with this 'overflow'). So when compiling from a high level lang like C down to mips assembly, it is often faster to just use normal ints instead of short ints as the extra machine instructions to correct 8 bit arithmetic aren't needed.
+}
+
+.data 
+{
+	.byte 'c' (char goes in single quotes)
+	.halfword
+	.word
+	.doubleword
+	.space <num bytes>
+	.asciiz "" null terminated string
+	.ascii "" non-null terminated string
+	.word 1, 2, 3 (this is an array, .space can also be treated as an array too)
+
+	.data section starts at address 0x10000000 in memory (this is referred to as the base address)
+}
+
+registers
+{
+	$zero 	  : register that always contains 0x0
+	$t0 - $t9 : temporary registers (equivalent to local variables in functions)
+	$s0 - $s7 : saved registers (should not be changed in sub-routines)
+	$v0 - $v1 : values returned by functions
+	$a0 - $a3 : functions arguments (parameters) (can be changed by the function)
+
+	$gp 	  : global pointer (base address of ?)
+	$sp 	  : stack pointer (base address of start of stack)
+	$fp 	  : frame pointer (base address of where stack is up to)
+
+	$k0 - $k1 : kernal reserved (DO NOT USE THESE)
+	$at 	  : assembler temporary (used by the assembler to do pseudo-instructions) (DO NOT USE THIS)
+
+	note: $zero and $ra are the only registers that differ on a hardware level, the rest are the same and can be used however you want to (the names are just how they are intended to be used). note: although all registers are the same, upon calling a syscall (essentially a os function), all registers can potentially be overwritten by that function with the excpetion of $s saved registers.
+}
+
+pseudo-instructions
+{
+	move 	$d,$s (copies the contents of $s to $d) (it is read like: my_var = 42)
+
+	li 		$d,const (copies const into $d, const can be + | - and 16 | 32 bit)
+
+	lw    	$d,adrs (copies the value at adrs in memory into the register) (similar to *ptr i.e. 'value at')
+
+	la    	$d,adrs (copies the address, adrs, into the register) (it is a pointer to a part of memory)
+
+		note: putting brackets around a register that holds an address acts as the * value at operator. i.e.
+			la    $d, adrs
+			lw    $d2, 0($d)
+		where 0 is an offset to the address stored in $d
+
+	nop (no operation instruction - does nothing)
+
+	sw    	$d,adrs (store value in register $d into the word (4 bytes) started by the mem address 'adrs') 
+
+	not   	$d,$s (invert $s and place it in $d)
+
+	or (depending on the operand it converts this pseudo into the correct or i.e. ori)
+
+	and (same as or except performs bitwise &)
+
+	addu (does different addition instructions depending on the operands given i.e. 16 bit, 32 bit, immediate)
+
+	negu 	$d,$s (puts -$s in $d)
+
+	mul 	$d,$s,$t (when the result of multiplication is small enough to store in one reg you can specify it)
+
+	div 	$d,$s,$t (integer division of $s and $t stored in $d)
+
+	divu	$d,$s,$t (integer division of $s and $t stored in $d, unsigned values)
+
+	remu  	$d,$s,$t (integer divison of $s and $t where remainder is stored in $d, unsigned values)
+
+	abs 	$d,$s (abs($s) is stored in $d)
+
+	rol  	$d,$s,$t (rotates the bits in $s by $t (or a const) and stored them in $d (like << but bits rotate))
+
+	ror  	$d,$s,$t (rotates the bits in $s by $t (or a const) and stored them in $d (like >> but bits rotate))
+
+	for pseudo branch instructions see table: http://chortle.ccsu.edu/assemblytutorial/Chapter-24/ass24_4.html
+
+	for pseudo store instructions see table: http://chortle.ccsu.edu/assemblytutorial/Chapter-24/ass24_10.html
+
+	jal 	sub    	# PC+4 address is stored in $ra (the address 8 bytes away from the jal) 
+           			# PC  <― sub load the PC with the subroutine entry point
+           			# a branch delay slot follows this instruction (nop instruction)
+
+    jr   	$ra    	# the address in $ra is stored in the PC  
+             		# has a branch delay after it (calls the line of code after it before returning)
+             		# note: you can jump to any address, not just $ra
+
+
+	syscall (ask the operating system to perform a service - then os returns control to program)
+	{
+		note: A system service works like a subroutine (function) and may alter the temporary registers. Values in saved registers are preserved, however.
+
+		$a0 or $a1 or $f12 contain parameters for the syscall function
+
+		$v0 or $f0 contains the return value (depending on whether it is a int or float)
+
+		$v0 contains the code for a specific system call
+			1 = print integer, load integer in $a0
+			2 = print float, load float in $f12
+			3 = print double, load double into $f12 and $f13
+			4 = print string, load adrs of string into $a0
+			5 = read integer, value entered is returned in $v0
+			6 = read float, value entered is returned in $f0
+			7 = read double, value entered is returned in $f0 and $f1
+			8 = read string, load adrs of string into $a0 and buffer length into $a1
+			9 = allocate memory, load $a0 with number of bytes wanted and adrs of mem is returned in $v0
+			10 = exit program
+	}
+
+
+}
+
+operations ($d = destination reg. $s = source reg. $t = temp. reg. etc.)
+{
+	*****bitwise*****
+
+	sll 	$d,$s,shft (shift left logical) (bitwise <<)
+	sll 	$0,$0,0 ('no-op/do nothing' instruction)
+
+	srl 	$d,$s,shft (shift right logical) (bitwise >>)
+	sra   	$d,$s,shft (shift right arithmetic - keeps the signed bit the same on 2's comp numbers so division 		can be done quickly with this, remember >> 1 == /2, note: this is only for signed numbers)
+
+	or 		$d,$s,$t (bitwise |)
+	or  	$d,$s,$0 (bitwise |) ('move' instruction) (guaranteed to be a copy of source due to $0)
+	ori 	$d,$s,const (zero extends const then performs bitwise |) ('ori $d, const' when $s and $d are the same)
+
+	and 	$d,$s,$t (bitwise &)
+
+	xor 	$d,$s,$t (bitwise ~)
+
+	nor 	$d,$s,$t !(bitwise |) (equivalent to bitwise | and then ^ result)
+	nor 	$d,$s,$0 !(bitwise |) ('inverse' instruction) (guaranteed to be the ^ of the source due to $0)
+
+	*****arithmetic*****
+
+	addu  	$d,$s,$t (unsigned addition, overflow throws no error)
+
+	add 	$d,$s,$t (addition, overflow throws error and returns control to os)
+
+	addiu	%d,$s,const (unsigned addition of a 16-bit 2's comp const that is sign extended to 32 bits, no err)
+		
+		note: const is sign-extended to 32 bits then added to a 32-bit zero. The sum is then loaded into $d and so
+		negative values can be loaded into registers using addiu.
+
+	addi 	%d,%s,const (addition of a 16-bit 2's comp const that is sign extended to 32 bits, err on overflow)
+
+	subu  	$d,$s,$t (unsigned subtraction)
+
+	sub 	$d,$s,$t (subtraction)
+
+		note: there are no subi operations, instead to subtract a const you just add the same negative amount
+		i.e. to subtract 42 you do addiu $d,$s, -42 (as +- is the same as -)
+
+	mult 	$s,$t (2's comp operands)
+
+	multu	$s,$t (unsigned operands)
+
+		note: multiplication result is stored bitwise, high order bits in $hi and low order bits in $lo. This is a 64 bit space and mult/multu never cause an overflow err
+
+	mfhi	$d (moves the bit pattern in hi to the destination reg.)
+	mflo	$d (same as above, except for lo)
+
+	div 	$s,$t (2's comp operands)
+
+	divu	$s,$t (unsigned operands)
+
+		note: division result is stored bitwise, integer division result is stored in lo and remainder is stored in hi
+
+	*****memory and registers*****
+
+	lw   	$d,off($b)	# Word from memory address $b+off is loaded into reg. $d 
+                    	# $b is a base register (e.g. 0x00040000). off is 16-bit two's complement.
+                    	# (The data from memory is available in $d after
+                    	   a one machine cycle delay so shouldn't access it 
+                    	   in the instruction immediately after).
+
+        note: There is a one machine cycle delay before the data from memory is available. Reaching outside of the processor chip into main memory takes time. But the processor does not wait and executes one more instruction while the load is going on. This is the load delay slot. The instruction immediately after a lw instruction should not use the register that is being loaded. Sometimes the instruction after the lw is a no-operation instruction.
+
+    sw   	$t,off($b)	# Word in $t is stored memory at address (b+off) 
+                    	# $b is a base register. off is 16-bit two's complement offset.
+
+        note: with both sw and lw the memory address must be word alligned i.e. a multiple of 4
+
+    lui  	$d,const  	# 16 bit (2 byte) const is stored in upper two bytes of $d
+              			# 0x0 is stored in lower two bytes of $d
+
+    lb   	$t,off($b)  # sign-extended byte from memory address $b+off is stored in reg. $t
+               			# b is a base register. 
+               			# off is 16-bit two's complement (sign extented to fit 32 bit reg.)
+               			# this is therefore for SIGNED bytes (values -128 to 127)
+
+    lbu   	$t,off($b) 	# zero-extended byte from mem adrs b+off is stored in reg. $t
+               			# b is a base register. 
+               			# off is 16-bit two's complement (zero extended to fit 32 bit reg (unsigned))
+               			# this is therefore for UNSIGNED bytes (ascii value or 8 bit unsigned integer)
+
+    sb    	$t,off($b)	# the low order btye from reg. $t is stored in mem at mem adr off($b)
+                 		# b is a base register. 
+                 		# off is 16-bit two's complement.
+
+    lh   	$t,off($b) 	# sign-extended halfword started from memory address $b+off is stored in reg. $t
+                		# b is a base register. 
+                		# off is 16-bit two's complement.
+
+    lhu   	$t,off($b) 	# zero-extended halfword starting from mem adrs b+off is stored in reg. $t
+               			# b is a base register. 
+               			# off is 16-bit two's complement
+
+    	note: halfwords can only be loaded from halfword alligned addresses (multiple of 2)
+
+
+    *****control flow*****
+
+    note: remember every machine instruction is located in memory (text section) and it a 32 bit (4 byte) quantity that is stored in the Program Counter then executed. A jump instruction changes the adrs stored in the program counter like so;
+
+   		(w/o jump): fetch instruction at adrs stored in PC -> increment PC -> execute instruction (repeats)
+   		(w/ jump): fetch instruction at adrs stored in PC -> increment PC -> jump (changes PC) 
+
+    	note: it takes an extra clock tick to load the PC with the jump adrs and so the instruction after the jump instruction (in memory) actually executes before the instruction at the jump adrs does. this is often set to a no-op instruction (sll 	$0,$0,0)
+
+    j    	adrs 		# after a delay of one machine cycle,
+                		# the address of adrs is stored in PC
+
+    	note: 	6 bits          26 bits
+				000010 00000000000000000000010101    -- fields of the instructuion
+				opcode         target address        -- meaning of the fields
+
+				the target is left shifted 2 bits (0000000000000000000001010100) and then the remaining 4 bits are concatenated on from the PC (as the instruc at the PC is the on immediately after the jump and so it is stored in the same general region of mem) - this is all worked out by the compiler so just use a symbol to refer to an adress i.e. j 	main
+
+	beq  	$u,$v,adrs  	# if bit pattern in register $u == bit pattern in register $v
+                			#     PC is changed to store adrs (after a delay of one machine cycle.)
+                			# else
+                			#     no effect.
+
+    bne  	$u,$v,adrs   	# if bit pattern in register $u != bit pattern in register $v
+                			#     PC is changed to store adrs (after a delay of one machine cycle.)
+                			# else
+                			#     no effect.
+
+    CLASSIC CONTROL STRUCTURE (if/else)
+    {
+    	        ...            	   # load values into 
+		                           # $8 and $9 
+		        beq  $8,$9,equal   # branch if equal
+		        sll  $0,$0,0       # branch delay slot
+		        ...                #  
+		        ...                #  false branch
+		        ...                #  
+		        j    cont
+		        sll  $0,$0,0       # branch delay slot
+		equal:  ...                #
+		        ...                #  true branch
+		        ...                #
+		cont:   add   $10,$10,$11  # always executed
+    }
+
+	bltz   	$s,label        #  Branch if the two's comp. integer in register $s is < 0
+                      		#  A branch delay slot follows the instruction.
+
+    bgez    $s,label       	#  Branch if the two's comp. integer in register s is >= 0
+                      		#  A branch delay slot follows the instruction.
+
+    *****comparison operators*****
+
+    slt   	$d,$s,$t        #  if ( $s < $t )
+                   			#    d = 1
+                   			#  else
+                   			#    d = 0
+                   			# $s and $t contain signed values
+
+    sltu  	$d,$s,$t    	#  if ( $s < $t )
+                   			#    d = 1
+                   			#  else
+                   			#    d = 0
+                   			# $s and $t contain unsigned values
+                   
+	slti  	$d,$s,const     #  if ( $s < imm )
+                   			#    d = 1
+                   			#  else
+                   			#    d = 0
+                   			# $s and const contain two's comp. integers (-32768 <= imm <= 32767)
+
+
+                   			
+                   			
+	sltiu  	$d,$s,const     #  if ( $s < const )
+                   			#    d = 1
+                   			#  else
+                   			#    d = 0
+                   			#  $s and const contain unsigned integers (0 <= imm <= 32767)
+
+    *****stack operations*****
+
+                        	# to PUSH the item in $t0 onto the stack you must;
+ 	subu  	$sp,$sp,4      	# point to the place for the new item,
+	sw   	$t0,($sp)      	# store the contents of $t0 as the new top.
+
+	                    	# to POP the item at the top of the stack into $t0 you must;
+	lw   	$t0,($sp)      	# copy top item to $t0.
+	addu 	$sp,$sp,4      	# point to the item beneath the old top.
+}
+
+program structure 
+{
+	rule 1: code is done in blocks (i.e. start: and midblk: blocks);
+
+		start:   	ori   $8,$0,4      # $8 = 4
+	         		ori   $9,$0,12     # $9 = 12
+		midblk:  	addu  $10,$8,$9    # $10 = 12+4 = 16
+	         		sll   $10,$10,2    # $10 = 16*4 = 64
+	         		....
+	         		ori   $8,$0,99     # $8 = 99
+	         		ori   $9,$0,43     # $9 = 43
+	         		j     midblk       # jump to the second statement after start
+
+    rule 2: code blocks can be viewed as one big block that run in sequential order (bar jumps)
+
+    rule 3: alteration (jumps)
+
+	            	...                #   
+		if:     	beq  $8,$9,yes     # is a==b ?
+	        		nop                #    no
+	        		...                #    false block
+	        		...                #    
+	        		...                #  
+	        		j    endif
+	        		nop
+		yes:    	...                #   yes
+	        		...                #   true block
+	        		...                #
+		endif:  	nop                # always executed
+
+	rule 4: iteration
+
+		while:  	bltz   $8,endWh
+        			...
+        			...				   # while body
+        			...
+        			j      while
+        			sll    $0,$0,0
+
+		endWh:  	sll    $0,$0,0
+
+}
+
+essentials 
+{
+	FOR LOOP
+	{
+	data: 	.byte  6,34,12,-32, 90 
+
+			.text
+
+		    li    $v1,0              # zero the sum
+	        li    $t1,0              # init index to 0
+	        li    $t2,0              # init loop counter
+	        
+	for:    beq   $t2,5,endfor       # for ( i=0; i < 5 ;i++ )
+	        lb    $v0,data($t1)
+	        addu  $v1,$v1,$v0        #     sum = sum+data[i]
+	        addi  $t1,$t1,1          #     increment index
+	        addi  $t2,$t2,1          #     increment counter
+	        b     for
+
+	endfor: 
+	        ... 
+	}
+
+	BASIC CALLING CONVENTION
+	{
+	1. A subroutine is called using jal (which puts the return address in $ra.)
+	2. A subroutine will NOT call another subroutine.
+	3. The subroutine returns to its caller using jr $ra.
+	4. Registers are used as follows:
+		$t0 - $t9 — The subroutine is free to change these registers.
+		$s0 - $s7 — The subroutine must not change these registers.
+		$a0 - $a3 — These registers contain arguments for the subroutine. The subroutine can change them.
+		$v0 - $v1 — These registers contain values returned from the subroutine.
+	5. The main routine returns control by using the exit service (service 10) of the SPIM exception handler.
+	}
+
+}
+
+http://logos.cs.uic.edu/366/notes/mips%20quick%20tutorial.htm 
