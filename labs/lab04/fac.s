@@ -41,8 +41,10 @@ main:
          syscall                                # give OS control, print, then return control back to MIPS
          # end of body
 
-         lw    $ra, main_ret_save
-         jr    $ra          
+         li    $v0, 10
+         syscall
+         #lw    $ra, main_ret_save
+         #jr    $ra          
 
 #####################################
 
