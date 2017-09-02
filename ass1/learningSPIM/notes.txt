@@ -397,3 +397,15 @@ essentials
 }
 
 http://logos.cs.uic.edu/366/notes/mips%20quick%20tutorial.htm 
+
+
+
+
+start: condition that if true, go to end
+	...
+	increment counter
+	jump start
+
+end: 
+
+	reutrn
