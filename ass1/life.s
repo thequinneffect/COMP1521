@@ -29,12 +29,14 @@ newBoard: .space 100
 
 maxiters: 			.word 0
 main_ret_save:		.space 	4 	
-prompt: 			.asciiz "# iterations: "
+prompt: 			.asciiz "# Iterations: "
 iteration_msg1: 	.asciiz "=== After iteration "
 iteration_msg2: 	.asciiz " ===\n"
 alive: 				.asciiz "#"
 dead: 				.asciiz "."
 newline: 			.asciiz "\n"
+
+debug_print: 		.asciiz "debug\n"
 
 ###############################################################################################################
 
@@ -78,12 +80,12 @@ main:
 					la 		$s7, newBoard 				# $s7 is base address for newBoard
 					add 	$s7, $s7, $t0
 
-	if_m: 			lw 		$t2, ($s6)
+	if_m: 			lb 		$t2, ($s6)
 					bne 	$t2, 1, elif_m        		
 	
 	if_m2:			bge 	$s5, 2, elif_m2
 					#newboard[i][j] = 0;
-					sw 		$zero, ($s7)
+					sb 		$zero, ($s7)
 					j 		incr_inn
 
 	elif_m2:		beq 	$s5, 2, true
@@ -91,21 +93,21 @@ main:
 	
 	true:			#newboard[i][j] = 1;
 					li 		$t1, 1
-					sw 		$t1, ($s7)
+					sb 		$t1, ($s7)
 					j 		incr_inn
 
 	else_m2: 		#newboard[i][j] = 0;
-					sw 		$zero, ($s7)
+					sb 		$zero, ($s7)
 					j 		incr_inn
 
 	elif_m: 		bne 	$s5, 3, else_m
 					#newboard[i][j] = 1;
 					li 		$t1, 1
-					sw 		$t1, ($s7)
+					sb 		$t1, ($s7)
 					j 		incr_inn
 
 	else_m: 		#newboard[i][j] = 0;
-					sw 		$zero, ($s7)
+					sb 		$zero, ($s7)
 					j 		incr_inn					
 
 					####################################
@@ -114,7 +116,12 @@ main:
 					j 		inner_l
 	incr_mid: 		addi 	$s1, $s1, 1
 					j 		middle_l
-	incr_out: 		jal 	output
+	incr_out: 		la 		$a0, iteration_msg1
+					jal 	print_msg
+					move 	$a0, $s0 				# TODO: Check this lines logic
+					jal 	print_int
+					la 		$a0, iteration_msg2
+					jal 	print_msg
 					jal 	copy_show
 					addi 	$s0, $s0, 1
 					j 		outer_l
@@ -158,7 +165,7 @@ neighbours:
 					mul 	$t6, $t2, $s4
 					add 	$t6, $t6, $t3
 					add 	$t5, $t5, $t6
-					lw 		$t7, ($t5)
+					lb 		$t7, ($t5)
 					bne 	$t7, 1, incr_inn1
 					addi 	$v0, $v0, 1
 
@@ -188,6 +195,7 @@ neighbours:
 
 copy_show:
 					# code
+					move 	$t6, $ra
 					li 		$t0, 0
 
 	outer_l2:		bge 	$t0, $s4, ret_c  			# $t0 = i
@@ -203,18 +211,18 @@ copy_show:
 					add 	$t4, $t4, $t1 				# offset is now stored in $t4
 					add 	$t2, $t2, $t4
 					add 	$t3, $t3, $t4
-					lw 		$t5, ($t2)
-					sw 		$t5, ($t3)
-					lw 		$t5, ($t3)
+					lb 		$t5, ($t2)
+					sb 		$t5, ($t3)
+					lb 		$t5, ($t3)
 					#board[i][j] = newboard[i][j];
 
 	if_c: 			bne 	$t5, $zero, else_c
 					la 		$a0, dead
-					jal 	print_char
+					jal 	print_msg
 					j 		incr_inn2	
 
 	else_c:			la 		$a0, alive	
-					jal 	print_char
+					jal 	print_msg
 
 	incr_inn2:		addi 	$t1, $t1, 1
 					j 		inner_l2
@@ -222,11 +230,12 @@ copy_show:
 					####################################
 	
 	incr_out2: 		la 		$a0, newline
-					jal 	print_char 					# TODO: check if this needs to be print string instead 
+					jal 	print_msg 					# TODO: check if this needs to be print string instead 
 					addi 	$t0, $t0, 1
 					j 		outer_l2
 
-	ret_c:			jr 		$ra
+	ret_c:			move 	$ra, $t6
+					jr 		$ra
 
 					#for (int i = 0; i < N; i++) {
       				#	for (int j = 0; j < N; j++) {
@@ -244,22 +253,18 @@ copy_show:
 print_msg:
 					li 		$v0, 4
 					syscall
+					jr 		$ra
 
 ###############################################################################################################
 
 print_int: 			li 		$v0, 1
 					syscall
+					jr 		$ra
 
 ###############################################################################################################
 
 print_char: 		li 		$v0, 11
 					syscall
+					jr 		$ra
 
 ###############################################################################################################
-
-output: 			la 		$a0, iteration_msg1
-					jal 	print_msg
-					move 	$a0, $s0 				# TODO: Check this lines logic
-					jal 	print_int
-					la 		$a0, iteration_msg2
-					jal 	print_msg
