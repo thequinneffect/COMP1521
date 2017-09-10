@@ -165,8 +165,6 @@ neighbours:
     incr_n_loop2:   addi    $t1, $t1, 1                 # increment loop2
                     j       n_loop2
 
-                    ####################################
-
     incr_n_loop1:   addi    $t0, $t0, 1                 # increment loop1
                     j       n_loop1
 
@@ -217,8 +215,6 @@ copy_show:
 
     incr_c_loop2:   addi    $t1, $t1, 1                 # increment l2 counter
                     j       c_loop2
-
-                    ####################################
     
     incr_c_loop1:   la      $a0, newline                # print a newline
                     li      $v0, 4  
