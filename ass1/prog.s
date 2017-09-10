@@ -82,8 +82,10 @@ main:
 
     incr_m_loop3:   addi    $s2, $s2, 1                 # increment loop3
                     j       m_loop3
+
     incr_m_loop2:   addi    $s1, $s1, 1                 # increment loop2
                     j       m_loop2
+
     incr_m_loop1:   la      $a0, iteration_msg1         # print iteration messages "after iteration x"
                     li      $v0, 4
                     syscall
@@ -97,8 +99,7 @@ main:
                     addi    $s0, $s0, 1                 # increment loop1
                     j       m_loop1
 
-    end_main:
-                    lw      $ra, main_ret_save          # load return address of main into return address reg.
+    end_main:       lw      $ra, main_ret_save          # load return address of main into return address reg.
                     jr      $ra                         # jump to main caller
 
                     # C code for this function #
