@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "starGlider.h"
+#include "board.h"
 
 int neighbours(int, int);
 void copyBackAndShow();
