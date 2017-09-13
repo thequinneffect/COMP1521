@@ -80,18 +80,17 @@ int main(int argc, char *argv[])
   
    struct dirent *entry;
    struct stat meta_data;
-   int dir_len = strlen(dirname);
-   int name_len = 0;
 
    while ((entry = readdir(dir_p)) != NULL)
    {
       if (entry->d_name[0] != '.')
       {
          // 1. build path to current file
-         name_len = strlen(entry->d_name);
-         strcpy(path, dirname);
-         strcpy(&path[dir_len],entry->d_name); // build file section of path
-         strcpy(&path[dir_len+name_len], "\0"); // append a newline to terminate the path string
+         memset(path,0,sizeof(path));
+         strcat(path, dirname);      
+         strcat(path, "/");
+         strcat(path, entry->d_name);
+         strcat(path, "\0");
          //printf("%s\n", path);
          //printf("%s\n", entry->d_name);
 
@@ -132,7 +131,7 @@ char *rwxmode(mode_t mode, char *str)
    if ((mode & S_IXOTH) ? strcpy(&str[i], "x") : strcpy(&str[i], "-")); i++;
 
    return str;
-   
+
    /*
    S_IRWXU     00700   000000111000000 owner has read, write, and execute permission
    S_IRUSR     00400   000000100000000 owner has read permission
