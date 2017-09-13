@@ -1,0 +1,18 @@
+disk = cabinet
+directory = manilla folder
+file = contents of manilla folder
+
+inode = data structure that stores physical location of the files bytes on disk, the file type,
+
+off_t - (long signed, offsets within files)
+size_t - (unsigned, number of bytes in object)
+ssize_t - (signed, size of read/written blocks)
+struct stat - (file system metadata)
+
+file descriptor - index into a system table
+open() - open a file system object, returns a file descriptor
+close() - stop using descriptor
+read() - read bytes into a buffer from descriptor
+write() - write bytes from buffer to descriptor
+lseek() - move to specified offset in file
+stat() - get meta-data about a file system object
