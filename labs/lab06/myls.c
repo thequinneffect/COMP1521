@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
          //printf("%s\n", entry->d_name);
 
          // 2. build stat struct with meta data from current file
-         stat(path, &meta_data);
+         lstat(path, &meta_data);
 
          // 3. output meta data
          printf("%s  %-8.8s %-8.8s %8lld  %s\n",   rwxmode(meta_data.st_mode, mode),
@@ -117,18 +117,23 @@ int main(int argc, char *argv[])
 // convert octal mode to -rwxrwxrwx string
 char *rwxmode(mode_t mode, char *str)
 {
-   // a ? b : c, is a ternary b or c (b is a is true, c otherwise)
-   // chpt
    int i = 0;
-   if ((mode & S_IRUSR) ? strcpy(&str[i], "r") : strcpy(&str[i], "-")); i++;
-   if ((mode & S_IWUSR) ? strcpy(&str[i], "w") : strcpy(&str[i], "-")); i++;
-   if ((mode & S_IXUSR) ? strcpy(&str[i], "x") : strcpy(&str[i], "-")); i++;
-   if ((mode & S_IRGRP) ? strcpy(&str[i], "r") : strcpy(&str[i], "-")); i++;
-   if ((mode & S_IWGRP) ? strcpy(&str[i], "w") : strcpy(&str[i], "-")); i++;
-   if ((mode & S_IXGRP) ? strcpy(&str[i], "x") : strcpy(&str[i], "-")); i++;
-   if ((mode & S_IROTH) ? strcpy(&str[i], "r") : strcpy(&str[i], "-")); i++;
-   if ((mode & S_IWOTH) ? strcpy(&str[i], "w") : strcpy(&str[i], "-")); i++;
-   if ((mode & S_IXOTH) ? strcpy(&str[i], "x") : strcpy(&str[i], "-")); i++;
+   str[i] = '?';
+   if ((mode & S_IFLNK) == S_IFLNK) str[i] = '1'; 
+   if ((mode & S_IFDIR) == S_IFDIR) str[i] = 'd';
+   if ((mode & S_IFREG) == S_IFREG) str[i] = '-';
+   i++;
+
+   (mode & S_IRUSR) ? (str[i] = 'r') : (str[i] = '-'); i++;
+   (mode & S_IWUSR) ? (str[i] = 'w') : (str[i] = '-'); i++;
+   (mode & S_IXUSR) ? (str[i] = 'x') : (str[i] = '-'); i++;
+   (mode & S_IRGRP) ? (str[i] = 'r') : (str[i] = '-'); i++;
+   (mode & S_IWGRP) ? (str[i] = 'w') : (str[i] = '-'); i++;
+   (mode & S_IXGRP) ? (str[i] = 'x') : (str[i] = '-'); i++;
+   (mode & S_IROTH) ? (str[i] = 'r') : (str[i] = '-'); i++;
+   (mode & S_IWOTH) ? (str[i] = 'w') : (str[i] = '-'); i++;
+   (mode & S_IXOTH) ? (str[i] = 'x') : (str[i] = '-'); i++;
+   str[i] = '\0';
 
    return str;
 

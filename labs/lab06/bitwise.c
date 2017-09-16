@@ -18,5 +18,42 @@ int main(void)
 	printf("b & d is %d\n", (b & d));
 	printf("e & f is %d\n", (e & f));
 
+	if (a & b) 
+	{
+		printf("a & b is true\n");
+	}
+
+	printf ("% *d\n", 3, 5); //where 3 is the amount of padding and 5 is the number to print
+
 	return 0;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
