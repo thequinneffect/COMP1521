@@ -1,6 +1,7 @@
 // PageTable.c ... implementation of Page Table operations
 // COMP1521 17s2 Assignment 2
 // Written by John Shepherd, September 2017
+// modified by Nicholas Quinn (z5117408), September 2017
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -25,31 +26,24 @@ struct PTE {
    int  loadTime;    // clock tick for last time loaded (where load means allocated to a memory frame?)
    int  nPeeks;      // total number times this page read
    int  nPokes;      // total number times this page 
-   int  page_number; // may need this if cant keep track of heads's page numbers any other way
-   struct PTE *next;
-   struct PTE *prev;
-   // TODO: add more fields here, if needed ...
+   int  page_number; // page number of page
+   struct PTE *next; // pointer to next page in victim priority list
+   struct PTE *prev; // pointer to prev page in victim priority list
 };
 
 typedef struct PTE PTE;
 
-// The virtual address space of the process is managed
-//  by an array of Page Table Entries (PTEs)
-// The Page Table is not directly accessible outside
-//  this file (hence the static declaration)
-
 static PTE *PageTable;      // array of page table entries
-struct PTE *head;
-struct PTE *tail;
-struct PTE *temp;
-struct PTE *page_to_update;
-PTE **page_getter;
+struct PTE *head;           // head of victim priority list (where head is the victim)
+struct PTE *tail;           // tail of victim priority list (where tail is furthest from being the victim)
+struct PTE *temp;           // temporary pointer for performing list operations
 static int  nPages;         // # entries in page table
 static int  replacePolicy;  // how to do page replacement
 
 // Forward refs for private functions
 
-static int findVictim(int, PTE *);
+static int findVictim(int);
+static void appendToVictimList(PTE*);
 
 // initPageTable: create/initialise Page Table data structures
 
@@ -62,14 +56,10 @@ void initPageTable(int policy, int np)
    }
    replacePolicy = policy;
    nPages = np;
-   page_getter = malloc(sizeof(PTE*)*nPages);
-   //fifoRead = 0;
-   //fifoWrite = nPages-1;
-   head = NULL;
+   head = NULL;                                       // init head/tail to point to no pages
    tail = NULL;
    for (int i = 0; i < nPages; i++) {
       PTE *p = &PageTable[i];
-      page_getter[i] = p;
       p->status = NOT_USED;
       p->modified = 0;
       p->frame = NONE;
@@ -77,7 +67,7 @@ void initPageTable(int policy, int np)
       p->loadTime = NONE;
       p->nPeeks = p->nPokes = 0;
       p->page_number = i;
-      p->next = NULL;
+      p->next = NULL;                                // init page to point to no other pages
       p->prev = NULL;
    }
 }
@@ -99,34 +89,28 @@ int requestPage(int pno, char mode, int time)
    case NOT_USED:
    case ON_DISK:
 
-      // TODO: add stats collection  
+      // add stats collection  
       countPageFault();
-
       fno = findFreeFrame();
 
       // if there is a free frame then add to victim list
       if (fno != NONE) {
-         if (head == NULL) {                             // if victim list has not started to be built
-            head = p;
-            tail = p;                             // head and tail both have the address of the specified page
-            //head->next = head->prev = tail->next = NULL; // set all pointers coming from head/tail to NULL as only 1 page in list
+         if (head == NULL) {     // if victim list has not started to be built
+            head = p;            // head and tail both now point to the specified page
+            tail = p;            
          } else {                // if victim list is partially built
-            temp = tail;    // save current tail so it can be doubly linked
+            temp = tail;         // save current tail so it can be doubly linked
             tail->next = p;      // add new page after tail
             tail = tail->next;   // make new page the tail
-            tail->prev = temp;   // link new tail to old tail via prev pointer
-            //tail->next = NULL;   // set tails next to point to nothing
+            tail->prev = temp;   // link new tail to old tail via prev pointer to maintain victim list
          }
       }
       // no free frames, so victim list is fully built, so get victim from it
-      // NOTE: could i just do away with the find victim function and just make it grab head? 
-         // maybe do that if thats the only thing needed there (no book-keeping etc.)
       else {
-         int vno = findVictim(time, p);
+         int vno = findVictim(time);
 #ifdef DBUG
          printf("Evict page %d\n",vno);
 #endif
-         // TODO:
          PTE *vic = &PageTable[vno];
          // if victim page modified, save its frame
          if (vic->modified) {
@@ -135,56 +119,44 @@ int requestPage(int pno, char mode, int time)
          // collect frame# (fno) for victim page
          fno = vic->frame;
          // update PTE for victim page
-         // - new status
-         // - no longer modified
-         // - no frame mapping
-         // - not accessed, not loaded
          vic->status = ON_DISK;
          vic->modified = 0;
          vic->frame = NONE;
          vic->accessTime = NONE;
          vic->loadTime = NONE;
+         // remove victim page from victim list and add new page to tail
+         appendToVictimList(p);
       }
       printf("Page %d given frame %d\n",pno,fno);
-      // TODO:
       // load page pno into frame fno
       loadFrame(fno, pno, time);
       // update PTE for page
-      // - new status
       p->status = IN_MEMORY;
-      // - not yet modified
       p->modified = 0;
-      // - associated with frame fno
       p->frame = fno;
-      // - just loaded
       p->loadTime = time;
       break;
    case IN_MEMORY:
-      // TODO: add stats collection
+      // add stats collection
       countPageHit();
       switch (replacePolicy) {
       case REPL_LRU:
          // update lru list
-         page_to_update = page_getter[pno];
-         if (page_to_update == tail) break;
-         if (page_to_update == head) {
+         if (p == tail) break;
+         if (p == head) {
             head = head->next;
             head->prev = NULL;
-            temp = tail;    // save current tail so it can be doubly linked
-            tail->next = page_to_update;      // add new page after tail
-            tail = tail->next;   // make new page the tail
-            tail->prev = temp;   // link new tail to old tail via prev pointer
-            tail->next = NULL;
          } else {
-            temp = page_to_update->prev;
-            page_to_update->prev->next = page_to_update->next; // snip it out of current place
-            page_to_update->next->prev = temp;
-            temp = tail;    // save current tail so it can be doubly linked
-            tail->next = page_to_update;      // add new page after tail
-            tail = tail->next;   // make new page the tail
-            tail->prev = temp;   // link new tail to old tail via prev pointer
-            tail->next = NULL;
+            temp = p->prev;
+            p->prev->next = p->next; // snip it out of current place
+            p->next->prev = temp;
          }
+         // do this regardless of page location in list (as long as not tail)
+         temp = tail;    // save current tail so it can be doubly linked
+         tail->next = p;      // add new page after tail
+         tail = tail->next;   // make new page the tail
+         tail->prev = temp;   // link new tail to old tail via prev pointer
+         tail->next = NULL;
       }
       break;
    default:
@@ -204,33 +176,31 @@ int requestPage(int pno, char mode, int time)
 // findVictim: find a page to be replaced
 // uses the configured replacement policy
 
-static int findVictim(int time, PTE *p)
+static int findVictim(int time)
 {
    int victim = 0;
    switch (replacePolicy) {
    case REPL_LRU:
-      // TODO: implement LRU strategy
+      // head page is victim
       victim = head->page_number;
-      head = head->next;   // pop first in from list
-      temp = tail;    // save current tail so it can be doubly linked
-      tail->next = p;      // add new page after tail
-      tail = tail->next;   // make new page the tail
-      tail->prev = temp;   // link new tail to old tail via prev pointer
       break;
    case REPL_FIFO:
-      // TODO: implement FIFO strategy
-      // ret head page number
+      // head page is victim
       victim = head->page_number;
-      head = head->next;   // pop first in from list
-      temp = tail;    // save current tail so it can be doubly linked
-      tail->next = p;      // add new page after tail
-      tail = tail->next;   // make new page the tail
-      tail->prev = temp;   // link new tail to old tail via prev pointer
       break;
    case REPL_CLOCK:
       return 0;
    }
    return victim;
+}
+
+// pop victim from victim list and add new page to tail (so it is least likely to be victim)
+void appendToVictimList(PTE *p) {
+   head = head->next;   // pop first in from list
+   temp = tail;         // save current tail so it can be doubly linked
+   tail->next = p;      // add new page after tail
+   tail = tail->next;   // make new page the tail
+   tail->prev = temp;   // link new tail to old tail via prev pointer
 }
 
 // showPageTableStatus: dump page table
