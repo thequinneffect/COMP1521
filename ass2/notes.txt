@@ -1,0 +1,83 @@
+SIMPLIFIED FLOW
+{
+	1. get memory management policy, the size of memory (in frames), and the size of the process (in pages)
+	2. create/init memory frames
+	3. create/init pages
+	4. init stats
+	5. print page table
+	6. loop while there is still page requests to complete in the trace
+	7-14. do what is required to complete the current page request and print page table when done
+	15. show overall stats summary
+}
+
+
+PROGRAM FLOW
+{
+	1. get and set; the memory management policy, the size of system memory in terms of memory frames, and size of process in terms of pages (all from argv's)
+
+	2. create required amount of memory frames (MF's), set their fields (whichPage, whenLoaded) to be NONE and NEVER_LOADED (as this is default)
+		# this is default because at start, none of the process has been loaded into memory - makes sense
+
+	3. create required amount of page table entries (PTE's), set the replace policy specified in args, set num pages, set fifo first and last "pointers", and set each page table entries values to defaults i.e. not used, no frame, not modified, no access time etc.
+
+	4. init stats (peek and poke requests, loads, saves, hits and faults all = 0)
+
+	#DEBUGGING FEATURE ONLY - NOT NEEDED FOR FUNCTIONALITY - BUT IS NEEDED TO SEE IF PROGRAM IS WORKING SO KEEP IT ANYWAY
+	5. prints page table header (Page, Status, Mod?, Frame, Acc(t), Load(t), #Peeks, #Pokes), accesses each page table entries info and prints it under header
+
+	6. init time/clock to 0, loop starts that iterates through trace and loops as long as there is a [r/w][pagenum] to grab and assign to pageno and mode
+		# essentially, as long as there is a page keep looping
+
+		7. (in loop) prints requested page number, its mode and the current clock tick/time, iterates peek/poke request depending on mode and looks at grabbed pages status
+
+		8. (in loop) if status is NOT_USED or ON_DISK, then loop through memory frames until first one with whichPage = NONE is found
+
+			9. if a free memory frame is NOT found, then find which memory frame should be overwritten (findVictim) and print which page is being evicted
+				# this function is a TODO
+
+			10. TODO: if the victim page was modified, then save its frame (disk), collect its frame number, update page table for victim page (new status, no longer modified, no frame mapping, not accessed/loaded). program then prints pagenum to be inserted at which framenum. (should be victim frame)
+
+			11. TODO: load specified page into specified frame, update page table entry for new page (new status, not yet modified, associated with specified frame, loaded at current tick)
+
+		12. (in loop) TODO: if status is IN_MEMORY, then collect stats (update only essentially, no push or pop from MF's occuring)
+
+		13. (in loop) if mode is read, increment peeks, else if mode is write, increment pokes and set modified bool to true and set accesstime to current tick and then return the pages frame
+
+		#DEBUGGING FEATURE ONLY - NOT NEEDED FOR FUNCTIONALITY
+		14. prints page table header (Page, Status, Mod?, Frame, Acc(t), Load(t), #Peeks, #Pokes), accesses each page table entries info and prints it under header
+
+	15. (after loop) show summary of stats down the bottom (print npeeks, npokes, npeeks+pokes, hits, faults, loads and saves) and return main program (Exit prog.)
+		# have to manage hits, faults and other things myself in stat collection
+}
+
+
+
+
+
+
+
+
+
+
+
+already done: 
+{
+	- page numbers
+	- access time
+	- peeks
+	- pokes
+}
+
+TODO: 
+{
+	- lru
+	- fifo
+	- load, frame and status columns of page table
+} this should at least take care of frame
+
+might be implemented:
+{
+	- status
+	- mod
+	- load
+} these might be done and just don't show until lru and fifo are implemented
