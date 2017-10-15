@@ -43,7 +43,10 @@ static int  replacePolicy;  // how to do page replacement
 // Forward refs for private functions
 
 static int findVictim(int);
-static void appendToVictimList(PTE*);
+static void buildVictimList(PTE*);
+static void updateVicPTE(PTE*);
+static void updateNewPagePTE(PTE*, int, int);
+static void updateLRU(PTE*);
 
 // initPageTable: create/initialise Page Table data structures
 
@@ -56,7 +59,7 @@ void initPageTable(int policy, int np)
    }
    replacePolicy = policy;
    nPages = np;
-   head = NULL;                                       // init head/tail to point to no pages
+   head = NULL; // init head/tail to point to no pages
    tail = NULL;
    for (int i = 0; i < nPages; i++) {
       PTE *p = &PageTable[i];
@@ -67,7 +70,7 @@ void initPageTable(int policy, int np)
       p->loadTime = NONE;
       p->nPeeks = p->nPokes = 0;
       p->page_number = i;
-      p->next = NULL;                                // init page to point to no other pages
+      p->next = NULL; // init page to point to no other pages
       p->prev = NULL;
    }
 }
@@ -80,32 +83,24 @@ void initPageTable(int policy, int np)
 int requestPage(int pno, char mode, int time)
 {
    if (pno < 0 || pno >= nPages) {
-      fprintf(stderr,"Invalid page reference\n");
+      fprintf(stderr,"Invalid page reference \n");
       exit(EXIT_FAILURE);
    }
-   PTE *p = &PageTable[pno];
+   PTE *p = &PageTable[pno]; // page
    int fno; // frame number
-   switch (p->status) {
-   case NOT_USED:
-   case ON_DISK:
+   switch (p->status) { // look at page's status
+   case NOT_USED: // both these cases are deemed identical for this assignment
+   case ON_DISK: 
 
       // add stats collection  
-      countPageFault();
-      fno = findFreeFrame();
+      countPageFault(); // has to be loaded, so increment page faults
+      fno = findFreeFrame(); // find a free frame of memory for the page frame to go in
 
-      // if there is a free frame then add to victim list
+      // if there IS A FREE FRAME then ADD PAGE p TO VICTIM LIST
       if (fno != NONE) {
-         if (head == NULL) {     // if victim list has not started to be built
-            head = p;            // head and tail both now point to the specified page
-            tail = p;            
-         } else {                // if victim list is partially built
-            temp = tail;         // save current tail so it can be doubly linked
-            tail->next = p;      // add new page after tail
-            tail = tail->next;   // make new page the tail
-            tail->prev = temp;   // link new tail to old tail via prev pointer to maintain victim list
-         }
+         buildVictimList(p);
       }
-      // no free frames, so victim list is fully built, so get victim from it
+      // NO FREE FRAMES, so VICTIM LIST FULLY BUILT, so get victim from it
       else {
          int vno = findVictim(time);
 #ifdef DBUG
@@ -118,23 +113,18 @@ int requestPage(int pno, char mode, int time)
          }
          // collect frame# (fno) for victim page
          fno = vic->frame;
-         // update PTE for victim page
-         vic->status = ON_DISK;
-         vic->modified = 0;
-         vic->frame = NONE;
-         vic->accessTime = NONE;
-         vic->loadTime = NONE;
+         // update PTE for victim page 
+         updateVicPTE(vic);
          // remove victim page from victim list and add new page to tail
-         appendToVictimList(p);
+         head = head->next;
+         buildVictimList(p); 
+         //appendToVictimList(p);
       }
       printf("Page %d given frame %d\n",pno,fno);
       // load page pno into frame fno
       loadFrame(fno, pno, time);
       // update PTE for page
-      p->status = IN_MEMORY;
-      p->modified = 0;
-      p->frame = fno;
-      p->loadTime = time;
+      updateNewPagePTE(p, fno, time);
       break;
    case IN_MEMORY:
       // add stats collection
@@ -142,39 +132,40 @@ int requestPage(int pno, char mode, int time)
       switch (replacePolicy) {
       case REPL_LRU:
          // update lru list
-         if (p == tail) break;
-         if (p == head) {
-            head = head->next;
-            head->prev = NULL;
-         } else {
-            temp = p->prev;
-            p->prev->next = p->next; // snip it out of current place
-            p->next->prev = temp;
-         }
-         // do this regardless of page location in list (as long as not tail)
-         temp = tail;    // save current tail so it can be doubly linked
-         tail->next = p;      // add new page after tail
-         tail = tail->next;   // make new page the tail
-         tail->prev = temp;   // link new tail to old tail via prev pointer
-         tail->next = NULL;
+         updateLRU(p);
       }
       break;
    default:
       fprintf(stderr,"Invalid page status\n");
       exit(EXIT_FAILURE);
    }
-   if (mode == 'r')
+   if (mode == 'r') // reading so increment peeks
       p->nPeeks++;
-   else if (mode == 'w') {
+   else if (mode == 'w') { // writing so increment pokes and set mod flag to true
       p->nPokes++;
       p->modified = 1;
    }
-   p->accessTime = time;
-   return p->frame;
+   p->accessTime = time; // update access time
+   return p->frame; // return the allocated memory frame for the page
+}
+
+// adds page p to end of victim list - least likely to be the victim
+
+void buildVictimList(PTE *p) {
+   if (head == NULL) {     // if victim list has not started to be built
+      head = p;            // head and tail both now point to the specified page
+      tail = p;            
+   } else {                // if victim list is partially built
+      temp = tail;         // save current tail so it can be doubly linked
+      tail->next = p;      // add new page after tail
+      tail = tail->next;   // make new page the tail
+      tail->prev = temp;   // link new tail to old tail via prev pointer to maintain victim list
+   }
 }
 
 // findVictim: find a page to be replaced
 // uses the configured replacement policy
+// note: lists built/managed in such a way that head is always victim
 
 static int findVictim(int time)
 {
@@ -194,13 +185,43 @@ static int findVictim(int time)
    return victim;
 }
 
-// pop victim from victim list and add new page to tail (so it is least likely to be victim)
-void appendToVictimList(PTE *p) {
-   head = head->next;   // pop first in from list
-   temp = tail;         // save current tail so it can be doubly linked
+// updates the PTE for the victim
+
+void updateVicPTE(PTE *vic) {
+   vic->status = ON_DISK;
+   vic->modified = 0;
+   vic->frame = NONE;
+   vic->accessTime = NONE;
+   vic->loadTime = NONE;
+}
+
+// updates the PTE for the new page
+
+void updateNewPagePTE(PTE *p, int fno, int time) {
+   p->status = IN_MEMORY;
+   p->modified = 0;
+   p->frame = fno;
+   p->loadTime = time;
+}
+
+// updates the victim list specifically for memory accesses for LRU policy
+
+void updateLRU(PTE *p) {
+   if (p == tail) return; // already in least recently used position, so do nothing
+   if (p == head) { 
+      head = head->next; // pop head
+      head->prev = NULL; // unlink new head from old head
+   } else {
+      temp = p->prev; // save page before page to be updated
+      p->prev->next = p->next; // snip page out of current place
+      p->next->prev = temp; // link node after page to be updated to one before it
+   }
+   // do this regardless of page location in list (as long as not tail)
+   temp = tail;    // save current tail so it can be doubly linked
    tail->next = p;      // add new page after tail
    tail = tail->next;   // make new page the tail
    tail->prev = temp;   // link new tail to old tail via prev pointer
+   tail->next = NULL;
 }
 
 // showPageTableStatus: dump page table

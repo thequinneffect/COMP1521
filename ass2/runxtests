@@ -1,0 +1,17 @@
+!#/bin/sh
+
+for n1 in 300
+do
+  for n2 in 150 270 498 921
+  do
+    for t in lru fifo
+    do
+      for x2 in 200 34 20 45 23
+      do
+        echo "=== Test type $t with ($n2,$x2) on trace$n1$n2 ==="
+        ./vmsim $t $n2 $x2 < xtests/xtrace$n1$n2 > xtests/out-$t-$n2-$x2-xtrace$n1$n2-obs.txt
+        diff xtests/out-$t-$n2-$x2-xtrace$n1$n2.txt xtests/out-$t-$n2-$x2-xtrace$n1$n2-obs.txt
+      done
+    done
+  done
+done
